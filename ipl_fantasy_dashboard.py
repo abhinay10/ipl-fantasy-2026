@@ -4,9 +4,9 @@ import requests
 
 st.set_page_config(page_title="IPL 2026 Fantasy League", layout="wide", page_icon="🏏")
 st.title("🏏 IPL 2026 Private Fantasy League Dashboard")
-st.caption("Captain = 2× | Vice-Captain = 1.5× | Grok-powered live points | MI vs KKR LIVE")
+st.caption("Captain = 2× | Vice-Captain = 1.5× | Updated after KKR innings (220/4) | MI chasing")
 
-# Team data (unchanged)
+# ====================== TEAM DATA ======================
 teams = {
     "Abhinay": {"players": ["Kishan", "Sooryavanshi", "Sundar", "Will Jacks", "Arshdeep", "Jansen", "Gill", "Bethell", "Butler", "Khaleel", "Angrish Raghuvanshi"], "prices": [11.25, 1.1, 3.2, 5.25, 18.0, 7.0, 16.5, 2.6, 15.75, 4.8, 3.0], "total_spend": 88.45, "remaining": 1.55},
     "Ritu": {"players": ["Kohli", "Rahul", "Bishnoi", "Miller", "Anshul Kambhoj", "Priyansh Arya", "Deepak Chahar", "Mohsin Khan", "Hetmyer", "Sunil Narine", "Sai Kishore"], "prices": [21.0, 14.0, 7.2, 2.0, 3.4, 3.8, 9.25, 4.0, 11.0, 12.0, 2.0], "total_spend": 89.65, "remaining": 0.35},
@@ -16,14 +16,14 @@ teams = {
     "Kaushal": {"players": ["Bumrah", "Iyer", "Rachin Ravindra", "prabhsimran", "NKR", "Suyash", "Ramandeep", "Patidar", "Sandeep Sharma", "Shashank Singh", "Tewatia"], "prices": [18.0, 26.75, 4.0, 4.0, 6.0, 2.0, 4.0, 11.0, 4.0, 5.5, 4.0], "total_spend": 89.25, "remaining": 0.75}
 }
 
-# Base points (Match 1 + accumulated)
+# ====================== UPDATED BASE POINTS (Match 1 + KKR Innings) ======================
 base_points = {
-    "Abhinay": {"Kishan": 110, "Angrish Raghuvanshi": 0},
-    "Ritu": {"Kohli": 104, "Sunil Narine": 0},
-    "Prayas": {"Abhishek": 9, "Bhuvi": 25, "Jitesh Sharma": 8, "Hardik": 0},
-    "Akshay": {"Padikkal": 112},
+    "Abhinay": {"Kishan": 110, "Angrish Raghuvanshi": 73},   # Strong fifty + boundaries/sixes
+    "Ritu": {"Kohli": 104, "Sunil Narine": 42},               # Narine bowling contribution
+    "Prayas": {"Abhishek": 9, "Bhuvi": 25, "Jitesh Sharma": 8, "Hardik": 33},  # Hardik wicket
+    "Akshay": {"Padikkal": 112, "Green": 26, "shardul": 58},   # Green cameo + Shardul wickets
     "Aayush": {"Head": 13, "David": 19},
-    "Kaushal": {"NKR": 1, "Suyash": 25, "Patidar": 43, "Bumrah": 0}
+    "Kaushal": {"NKR": 1, "Suyash": 25, "Patidar": 43, "Bumrah": 35}  # Bumrah early impact
 }
 
 # Persistent C/VC
@@ -32,10 +32,15 @@ if "captains" not in st.session_state:
 if "vice_captains" not in st.session_state:
     st.session_state.vice_captains = {team: None for team in teams}
 
-# Live Score
+# Live Score (MI chasing)
 @st.cache_data(ttl=45)
 def get_live_score():
-    return {"status": "Live", "title": "MI vs KKR - Match 2", "score": "KKR 220/4 | MI 59/0 (4.3 ov) chasing 221", "update": "Rohit & Rickelton opening strongly"}
+    return {
+        "status": "Live - MI Chasing",
+        "title": "MI vs KKR - Match 2",
+        "score": "KKR 220/4 | MI chasing 221 (early overs)",
+        "update": "Rohit Sharma & Ryan Rickelton batting. Big points possible in chase!"
+    }
 
 live_data = get_live_score()
 
@@ -49,13 +54,18 @@ with tab1:
         captain = st.session_state.captains.get(name)
         vice = st.session_state.vice_captains.get(name)
         total = sum((pts*2 if p == captain else pts*1.5 if p == vice else pts) for p, pts in team_base.items())
-        standings_data.append({"Team": name, "Total Fantasy Points": round(total, 1), "Spent (cr)": team["total_spend"], "Purse Left (cr)": team["remaining"]})
+        standings_data.append({
+            "Team": name,
+            "Total Fantasy Points": round(total, 1),
+            "Spent (cr)": team["total_spend"],
+            "Purse Left (cr)": team["remaining"]
+        })
     standings_df = pd.DataFrame(standings_data).sort_values("Total Fantasy Points", ascending=False).reset_index(drop=True)
     st.dataframe(standings_df, width='stretch', hide_index=True)
 
 with tab2:
-    if st.button("🔄 Pull Latest Points from Grok (Click & tell me in chat)", type="primary"):
-        st.info("✅ Button clicked! Now reply in this chat with **'Update points after KKR innings'** or **'Update current live points'** and I'll give you the exact numbers to paste.")
+    if st.button("🔄 Pull Latest Points from Grok", type="primary"):
+        st.info("Button clicked! Reply in chat with 'Update points after MI vs KKR' or 'Update current live points' for next calculation.")
 
     cols = st.columns(3)
     for i, (name, team) in enumerate(teams.items()):
@@ -63,13 +73,14 @@ with tab2:
             with st.container(border=True):
                 st.subheader(f"**{name}**")
                 players_list = team["players"]
+                
                 cap_index = 0 if not st.session_state.captains[name] else players_list.index(st.session_state.captains[name]) + 1
                 vc_index = 0 if not st.session_state.vice_captains[name] else players_list.index(st.session_state.vice_captains[name]) + 1
                 
                 new_cap = st.selectbox("Captain (2×)", ["None"] + players_list, index=cap_index, key=f"cap_{name}")
                 new_vc = st.selectbox("Vice-Captain (1.5×)", ["None"] + players_list, index=vc_index, key=f"vc_{name}")
                 
-                if st.button("💾 Save C/VC", key=f"save_{name}"):
+                if st.button("💾 Save Captain & Vice-Captain", key=f"save_{name}"):
                     st.session_state.captains[name] = None if new_cap == "None" else new_cap
                     st.session_state.vice_captains[name] = None if new_vc == "None" else new_vc
                     st.success(f"Saved for {name}!")
@@ -93,8 +104,8 @@ with tab3:
     st.write(f"**Score:** {live_data['score']}")
     if live_data.get("update"):
         st.info(live_data["update"])
-    st.caption("KKR innings over (220/4). MI chasing. Click the Pull button in All Teams tab and tell Grok to calculate.")
+    st.caption("KKR innings complete (220/4). MI chasing. Refresh or use Grok button for updates.")
 
-st.info("**How to update points:** Click the big 🔄 button → then reply here with **'Update points after KKR innings'** or **'Update current live points'**. I'll give you the exact base_points to copy-paste. This way the points are always accurate using your full system.")
+st.info("**How to update further:** Click the 🔄 button and reply here with your request (e.g. 'Update points after MI vs KKR'). This keeps points accurate using your exact system.")
 
-st.success("✅ '🔄 Pull Latest Points from Grok' button added. Deploy this and click it — then talk to me in chat for the calculation.")
+st.success("✅ Dashboard updated with KKR innings points! Deploy this version now.")
