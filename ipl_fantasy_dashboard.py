@@ -32,7 +32,7 @@ if "captains" not in st.session_state:
 if "vice_captains" not in st.session_state:
     st.session_state.vice_captains = {team: None for team in teams}
 
-# ====================== LIVE SCORE (MI vs KKR - Match 2 is tonight) ======================
+# ====================== LIVE SCORE ======================
 @st.cache_data(ttl=60)
 def get_live_score():
     try:
@@ -48,7 +48,7 @@ def get_live_score():
                         "score": m.get("score", "Score updating..."),
                         "update": m.get("update", "Match in progress")
                     }
-        return {"status": "Match yet to start or finished", "title": "MI vs KKR", "score": "Tonight 7:30 PM IST | Toss: MI won, bowling first", "update": "Check back during the match"}
+        return {"status": "Match yet to start or finished", "title": "MI vs KKR", "score": "Tonight 7:30 PM IST | Toss: MI won, bowling first", "update": ""}
     except:
         return {"status": "Live data temporarily unavailable", "title": "MI vs KKR", "score": "Tonight at 7:30 PM IST", "update": "Refresh during live play"}
 
@@ -71,7 +71,7 @@ with tab1:
             "Purse Left (cr)": team["remaining"]
         })
     standings_df = pd.DataFrame(standings_data).sort_values("Total Fantasy Points", ascending=False).reset_index(drop=True)
-    st.dataframe(standings_df.style.background_gradient(cmap="RdYlGn", subset=["Total Fantasy Points"]), use_container_width=True, hide_index=True)
+    st.dataframe(standings_df, width='stretch', hide_index=True)  # No gradient to avoid matplotlib issue
 
 with tab2:
     cols = st.columns(3)
@@ -81,7 +81,6 @@ with tab2:
                 st.subheader(f"**{name}**")
                 players_list = team["players"]
                 
-                # Dropdowns (remember previous selection)
                 cap_index = 0 if not st.session_state.captains[name] else players_list.index(st.session_state.captains[name]) + 1
                 vc_index = 0 if not st.session_state.vice_captains[name] else players_list.index(st.session_state.vice_captains[name]) + 1
                 
@@ -94,7 +93,6 @@ with tab2:
                     st.success(f"Saved for {name}!")
                     st.rerun()
                 
-                # Calculate total
                 captain = st.session_state.captains[name]
                 vice = st.session_state.vice_captains[name]
                 total = sum((pts*2 if p == captain else pts*1.5 if p == vice else pts) for p, pts in base_points.get(name, {}).items())
@@ -104,7 +102,7 @@ with tab2:
                 df = pd.DataFrame({"Player": team["players"], "Price (cr)": team["prices"]})
                 df["Base Points"] = df["Player"].map(base_points.get(name, {})).fillna(0).astype(int)
                 df["Final Points"] = df.apply(lambda row: round(row["Base Points"]*2 if row["Player"]==captain else row["Base Points"]*1.5 if row["Player"]==vice else row["Base Points"], 1), axis=1)
-                st.dataframe(df, hide_index=True, use_container_width=True)
+                st.dataframe(df, width='stretch', hide_index=True)
 
 with tab3:
     st.subheader("🔴 Live Score - MI vs KKR (Match 2)")
@@ -113,8 +111,8 @@ with tab3:
     st.write(f"**Score:** {live_match['score']}")
     if live_match.get("update"):
         st.info(live_match["update"])
-    st.caption("Auto-refreshes every 60 seconds. MI won toss and elected to bowl first.")
+    st.caption("Auto-refreshes every 60 seconds.")
 
-st.info("**Instructions:** In the All Teams tab, select C/VC → click **Save** button. Your choices will persist on refresh. For new match points after MI vs KKR ends, reply “Update points after MI vs KKR” and I’ll give you the exact base_points update.")
+st.info("**Instructions:** In All Teams tab → select C/VC → click **Save**. Selections persist on refresh. For new match points, reply “Update points after MI vs KKR”.")
 
-st.success("✅ Save buttons added + selections now persist! Deploy and test.")
+st.success("✅ Dashboard fixed (no matplotlib dependency, deprecated warnings removed). Deploy this version now.")
