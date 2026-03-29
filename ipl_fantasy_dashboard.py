@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
-import mathplotlib
+import matplotlib
 from datetime import datetime
 
 st.set_page_config(page_title="IPL 2026 Fantasy League", layout="wide", page_icon="🏏")
