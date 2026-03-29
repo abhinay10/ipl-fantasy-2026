@@ -1,14 +1,12 @@
 import streamlit as st
 import pandas as pd
-import requests
 import matplotlib
-from datetime import datetime
 
 st.set_page_config(page_title="IPL 2026 Fantasy League", layout="wide", page_icon="🏏")
 st.title("🏏 IPL 2026 Private Fantasy League Dashboard")
-st.caption("✅ 100% Automatic • Live data from Cricbuzz API • Updates on every refresh • Custom points system applied")
+st.caption("Captain = 2× points | Vice-Captain = 1.5× points | Base: Runs +1, Boundary +1, Six +2, 30-run bonus +4, 50 +8, 100 +16 | Wicket +25, LBW/Bowled +8, Maiden +12, 3W +4, 4W +8, 5W +12 | Catch +8, Stumping +12, Run-out +6")
 
-# ====================== YOUR TEAMS (static prices & players) ======================
+# ====================== TEAM DATA ======================
 teams = {
     "Abhinay": {
         "players": ["Kishan", "Sooryavanshi", "Sundar", "Will Jacks", "Arshdeep", "Jansen", "Gill", "Bethell", "Butler", "Khaleel", "Angrish Raghuvanshi"],
@@ -42,64 +40,49 @@ teams = {
     }
 }
 
-# ====================== LIVE DATA FETCH (Cricbuzz API) ======================
-@st.cache_data(ttl=180)  # refresh every 3 minutes
-def fetch_ipl_data():
-    points_list = []
-    try:
-        # Get recent IPL matches (league type)
-        recent = requests.get("https://cricbuzz-live.vercel.app/v1/matches/recent?type=league", timeout=15).json()
-        matches = recent.get("data", {}).get("matches", [])[:3]  # last 3 recent matches
+# ====================== BASE POINTS (after Match 1 - RCB vs SRH) ======================
+base_points = {
+    "Abhinay": {"Kishan": 110},
+    "Ritu": {"Kohli": 104},
+    "Prayas": {"Abhishek": 9, "Bhuvi": 25, "Jitesh Sharma": 8},
+    "Akshay": {"Padikkal": 112},
+    "Aayush": {"Head": 13, "David": 19},
+    "Kaushal": {"NKR": 1, "Suyash": 25, "Patidar": 43}
+}
 
-        for match in matches:
-            match_id = match.get("id")
-            if not match_id:
-                continue
-            # Get scorecard
-            score_resp = requests.get(f"https://cricbuzz-live.vercel.app/v1/score/{match_id}", timeout=15).json()
-            data = score_resp.get("data", {})
-
-            # Basic parsing (expandable - current API gives live/current players)
-            # For full fantasy points we map what we can (runs, wickets, catches etc. from available fields)
-            # In practice this captures live batting/bowling; completed matches may return summary
-
-            title = data.get("title", "IPL Match")
-            # Placeholder for full parsing - you can extend this section as API evolves
-            # Example: if batsman data available, calculate points
-            # For now we log the match and set sample points (real implementation would parse all players)
-
-            # Simulate points calculation from available data (extend as needed)
-            # This is where you would loop through batting/bowling arrays if API provides them
-            points_list.append({
-                "Match": title,
-                "Status": data.get("update", "Completed"),
-                "Note": "Points calculated from available live/recent data"
-            })
-
-    except Exception as e:
-        st.warning(f"⚠️ Live fetch temporarily unavailable ({str(e)[:100]}). Showing static view.")
-
-    return pd.DataFrame(points_list) if points_list else pd.DataFrame()
-
-live_data = fetch_ipl_data()
-
-# ====================== LEAGUE STANDINGS (current known totals - auto updated via live fetch) ======================
-# For true cumulative we would sum across all fetched matches - here we show current standings (update manually only if needed)
-standings_data = [
-    {"Team": "Abhinay", "Total Fantasy Points": 110, "Spent (cr)": 88.45, "Purse Left (cr)": 1.55},
-    {"Team": "Akshay", "Total Fantasy Points": 112, "Spent (cr)": 83.9, "Purse Left (cr)": 6.1},
-    {"Team": "Ritu", "Total Fantasy Points": 104, "Spent (cr)": 89.65, "Purse Left (cr)": 0.35},
-    {"Team": "Kaushal", "Total Fantasy Points": 69, "Spent (cr)": 89.25, "Purse Left (cr)": 0.75},
-    {"Team": "Prayas", "Total Fantasy Points": 42, "Spent (cr)": 80.4, "Purse Left (cr)": 9.6},
-    {"Team": "Aayush", "Total Fantasy Points": 32, "Spent (cr)": 86.95, "Purse Left (cr)": 3.05},
-]
-
-standings_df = pd.DataFrame(standings_data).sort_values("Total Fantasy Points", ascending=False).reset_index(drop=True)
+# Initialize session state for C/VC
+if "captains" not in st.session_state:
+    st.session_state.captains = {team: None for team in teams}
+if "vice_captains" not in st.session_state:
+    st.session_state.vice_captains = {team: None for team in teams}
 
 # ====================== UI ======================
-tab1, tab2, tab3 = st.tabs(["📊 League Standings", "👥 All Teams", "🔴 Live Matches"])
+tab1, tab2 = st.tabs(["📊 League Standings", "👥 All Teams"])
 
 with tab1:
+    standings_data = []
+    for name, team in teams.items():
+        team_base = base_points.get(name, {})
+        captain = st.session_state.captains.get(name)
+        vice = st.session_state.vice_captains.get(name)
+        total = 0.0
+        for player, pts in team_base.items():
+            if player == captain:
+                total += pts * 2
+            elif player == vice:
+                total += pts * 1.5
+            else:
+                total += pts
+        standings_data.append({
+            "Team": name,
+            "Total Fantasy Points": round(total, 1),
+            "Spent (cr)": team["total_spend"],
+            "Purse Left (cr)": team["remaining"],
+            "Captain": captain or "Not set",
+            "Vice-Captain": vice or "Not set"
+        })
+
+    standings_df = pd.DataFrame(standings_data).sort_values("Total Fantasy Points", ascending=False).reset_index(drop=True)
     st.dataframe(
         standings_df.style.background_gradient(cmap="RdYlGn", subset=["Total Fantasy Points"]),
         use_container_width=True,
@@ -108,25 +91,59 @@ with tab1:
 
 with tab2:
     cols = st.columns(3)
-    for i, (name, data) in enumerate(teams.items()):
+    for i, (name, team) in enumerate(teams.items()):
         with cols[i % 3]:
             with st.container(border=True):
                 st.subheader(f"**{name}**")
-                team_total = standings_df[standings_df["Team"] == name]["Total Fantasy Points"].iloc[0]
-                st.caption(f"Spent: **₹{data['total_spend']} cr** | Left: **₹{data['remaining']} cr** | Points: **{team_total}**")
+                
+                # Dropdowns for C/VC
+                players_list = team["players"]
+                current_cap = st.session_state.captains[name]
+                current_vc = st.session_state.vice_captains[name]
+                
+                new_cap = st.selectbox(
+                    "Captain (2×)", 
+                    options=["None"] + players_list, 
+                    index=0 if current_cap is None else players_list.index(current_cap) + 1,
+                    key=f"cap_{name}"
+                )
+                new_vc = st.selectbox(
+                    "Vice-Captain (1.5×)", 
+                    options=["None"] + players_list, 
+                    index=0 if current_vc is None else players_list.index(current_vc) + 1,
+                    key=f"vc_{name}"
+                )
+                
+                # Update session state
+                st.session_state.captains[name] = None if new_cap == "None" else new_cap
+                st.session_state.vice_captains[name] = None if new_vc == "None" else new_vc
+                
+                # Calculate and show total
+                team_base = base_points.get(name, {})
+                captain = st.session_state.captains[name]
+                vice = st.session_state.vice_captains[name]
+                total = 0.0
+                for player, pts in team_base.items():
+                    if player == captain:
+                        total += pts * 2
+                    elif player == vice:
+                        total += pts * 1.5
+                    else:
+                        total += pts
+                
+                st.caption(f"**Points: {round(total, 1)}** | Spent: ₹{team['total_spend']} cr | Left: ₹{team['remaining']} cr")
+                
+                # Player table with final points
                 df = pd.DataFrame({
-                    "Player": data["players"],
-                    "Price (cr)": data["prices"],
-                    "Points": [0] * len(data["players"])   # Live points populated from API in future versions
+                    "Player": team["players"],
+                    "Price (cr)": team["prices"]
                 })
+                df["Base Points"] = df["Player"].map(team_base).fillna(0).astype(int)
+                df["Final Points"] = df.apply(
+                    lambda row: round(row["Base Points"] * 2 if row["Player"] == captain else
+                                    row["Base Points"] * 1.5 if row["Player"] == vice else
+                                    row["Base Points"], 1), axis=1)
                 st.dataframe(df, hide_index=True, use_container_width=True)
 
-with tab3:
-    st.subheader("🔴 Recent / Live IPL Matches (Auto-fetched)")
-    if not live_data.empty:
-        st.dataframe(live_data, use_container_width=True)
-    else:
-        st.info("No live data right now – check back during matches!")
-
-st.success("🎉 Dashboard is now fully automatic! Just refresh the page after any match.")
-st.info("💡 Data refreshes every 3 minutes automatically. If the public API changes, reply “API update needed” and I’ll fix the code instantly.")
+st.info("**How it works:** Select Captain and Vice-Captain using the dropdowns. Changes update instantly. You can change them anytime. Points after Match 1 (RCB vs SRH) are loaded. Tonight’s MI vs KKR match starts at 7:30 PM IST — reply “Update points after MI vs KKR” when it ends and I’ll give you the next base points update.")
+st.success("✅ Captain & Vice-Captain dropdowns added! Select them now and watch the totals update live.")
