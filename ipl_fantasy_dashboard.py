@@ -17,13 +17,14 @@ teams = {
 }
 
 # ====================== UPDATED BASE POINTS (Match 1 + KKR Innings) ======================
+# ====================== FULLY CORRECTED BASE POINTS (Match 1 + KKR Innings) ======================
 base_points = {
-    "Abhinay": {"Kishan": 110, "Angrish Raghuvanshi": 73},   # Strong fifty + boundaries/sixes
-    "Ritu": {"Kohli": 104, "Sunil Narine": 42},               # Narine bowling contribution
-    "Prayas": {"Abhishek": 9, "Bhuvi": 25, "Jitesh Sharma": 8, "Hardik": 33},  # Hardik wicket
-    "Akshay": {"Padikkal": 112, "Green": 26, "shardul": 58},   # Green cameo + Shardul wickets
-    "Aayush": {"Head": 13, "David": 19},
-    "Kaushal": {"NKR": 1, "Suyash": 25, "Patidar": 43, "Bumrah": 35}  # Bumrah early impact
+    "Abhinay": {"Kishan": 110, "Angrish Raghuvanshi": 73},           # Raghuvanshi: 51 (6x4, 2x6, fifty)
+    "Ritu": {"Kohli": 104, "Sunil Narine": 42},                      # Narine bowling contribution
+    "Prayas": {"Abhishek": 9, "Bhuvi": 25, "Jitesh Sharma": 8, "Hardik": 33, "Tilak Varma": 16},  # Hardik 1w + Tilak 2 catches
+    "Akshay": {"Padikkal": 112, "Green": 26, "shardul": 58},         # Green cameo + Shardul multiple wickets
+    "Aayush": {"Head": 13, "David": 19, "Rahane": 92},               # Rahane 67 (3x4, 5x6)
+    "Kaushal": {"NKR": 1, "Suyash": 25, "Patidar": 43, "Bumrah": 35} # Bumrah impact
 }
 
 # Persistent C/VC
